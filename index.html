@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Video Player</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .input-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    #youtubeUrl {
+      flex: 1;
+      padding: 12px;
+      background: #2a2a2a;
+      color: #fff;
+      border: 2px solid #333;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 12px 24px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #status {
+      margin-bottom: 20px;
+      padding: 12px;
+      border-radius: 6px;
+    }
+
+    #status.loading {
+      background: #2a4a6a;
+      color: #6db3f2;
+    }
+
+    video {
+      width: 100%;
+      background: #000;
+      border-radius: 8px;
+    }
+
+    #videoPlayer {
+      display: none;
+    }
+
+    #videoPlayer.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>YouTube Video Player</h1>
+    
+    <div class="input-container">
+      <input type="text" id="youtubeUrl" placeholder="Enter YouTube URL">
+      <button id="playBtn">Play Video</button>
+    </div>
+
+    <div id="status"></div>
+    <video id="videoPlayer" controls></video>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
