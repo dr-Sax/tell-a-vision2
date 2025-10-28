@@ -4,7 +4,11 @@ const statusDiv = document.getElementById('status');
 const videoPlayer = document.getElementById('videoPlayer');
 
 async function playVideo() {
-  const youtubeUrl = urlInput.value.trim();
+  const input = urlInput.value.trim();
+  const json = JSON.parse(input);
+  youtubeUrl = json.url;
+  startTime = json.start_time;
+  endTime = json.end_time;
   
   statusDiv.textContent = 'Loading...';
   statusDiv.className = 'loading';
@@ -13,9 +17,18 @@ async function playVideo() {
   
   videoPlayer.src = result.url;
   videoPlayer.classList.add('visible');
+  videoPlayer.currentTime = startTime;
   videoPlayer.play();
   
   statusDiv.style.display = 'none';
+
+  // function to allow looping
+  videoPlayer.ontimeupdate = () => {
+    if (videoPlayer.currentTime >= endTime){
+      videoPlayer.currentTime = startTime;
+    }
+  }
+
 }
 
 playBtn.addEventListener('click', playVideo);

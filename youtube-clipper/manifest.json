@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Clipper",
+  "version": "1.0",
+  "description": "Set start/end points on YouTube videos and copy JSON for yt-dlp",
+  "permissions": [
+    "activeTab",
+    "clipboardWrite"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/watch*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

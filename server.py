@@ -16,26 +16,60 @@ def get_video_url():
     youtube_url = request.get_json()['url']
     
     ydl_opts = {
-        'format': 'best[ext=mp4]/best',
-        'quiet': True
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'quiet': True,
+        'no_warnings': True,
     }
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(youtube_url, download=False)
-        
-        # Find progressive MP4 format
-        video_url = None
-        for fmt in info['formats']:
-            if (fmt.get('ext') == 'mp4' and 
-                fmt.get('vcodec') != 'none' and 
-                fmt.get('acodec') != 'none'):
-                video_url = fmt['url']
-                break
-        
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=False)
+            
+            # Try to find a progressive MP4 format (has both video and audio)
+            video_url = None
+            formats = info.get('formats', [])
+            
+            # First, try to find a format that has both video and audio
+            for fmt in formats:
+                if (fmt.get('ext') == 'mp4' and 
+                    fmt.get('vcodec') != 'none' and 
+                    fmt.get('acodec') != 'none' and
+                    fmt.get('protocol') in ['https', 'http']):
+                    video_url = fmt['url']
+                    print(f"Found progressive format: {fmt.get('format_id')} - {fmt.get('format_note')}")
+                    break
+            
+            # If no progressive format, try to get the best video-only format
+            if not video_url:
+                for fmt in formats:
+                    if (fmt.get('ext') == 'mp4' and 
+                        fmt.get('vcodec') != 'none' and
+                        fmt.get('protocol') in ['https', 'http']):
+                        video_url = fmt['url']
+                        print(f"Found video-only format: {fmt.get('format_id')} - {fmt.get('format_note')}")
+                        break
+            
+            # Last resort - use the requested format
+            if not video_url:
+                video_url = info.get('url')
+            
+            if video_url:
+                return jsonify({
+                    'url': video_url,
+                    'title': info.get('title'),
+                    'success': True
+                })
+            else:
+                return jsonify({
+                    'error': 'Could not find a streamable video format',
+                    'success': False
+                }), 500
+                
+    except Exception as e:
         return jsonify({
-            'url': video_url,
-            'title': info.get('title')
-        })
+            'error': str(e),
+            'success': False
+        }), 500
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000

@@ -25,12 +25,18 @@ function createWindow() {
     height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true
+      contextIsolation: true,
+      // Additional security settings
+      nodeIntegration: false,
+      enableRemoteModule: false
     }
   });
 
   mainWindow.loadFile('index.html');
 }
+
+// Disable hardware acceleration to prevent GPU crashes
+app.disableHardwareAcceleration();
 
 app.whenReady().then(() => {
   startFlaskServer();
