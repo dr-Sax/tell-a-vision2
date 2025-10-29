@@ -6,6 +6,7 @@ const videoPlayer = document.getElementById('videoPlayer');
 async function playVideo() {
   const input = urlInput.value.trim();
   const json = JSON.parse(input);
+  console.log(json);
   youtubeUrl = json.url;
   startTime = json.start_time;
   endTime = json.end_time;
@@ -13,6 +14,7 @@ async function playVideo() {
   statusDiv.textContent = 'Loading...';
   statusDiv.className = 'loading';
   
+  console.log('electronAPI available?', window.electronAPI);
   const result = await window.electronAPI.getVideoUrl(youtubeUrl);
   
   videoPlayer.src = result.url;

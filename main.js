@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const http = require('http');
 
 let mainWindow;
+let threejsWindow;
 let flaskProcess;
 const FLASK_PORT = 5000;
 
@@ -26,13 +27,25 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      // Additional security settings
       nodeIntegration: false,
       enableRemoteModule: false
     }
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile('livecode.html');
+}
+
+function createThreejsWindow() {
+  threejsWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  threejsWindow.loadFile('juggler.html');
 }
 
 // Disable hardware acceleration to prevent GPU crashes
@@ -41,6 +54,7 @@ app.disableHardwareAcceleration();
 app.whenReady().then(() => {
   startFlaskServer();
   createWindow();
+  createThreejsWindow();
 });
 
 app.on('window-all-closed', () => {
