@@ -9,10 +9,13 @@ document.getElementById('container').appendChild(renderer.domElement);
 const img = document.createElement('img');
 img.src = 'http://127.0.0.1:5000/video_feed';
 
+
 // Create texture from image
 const texture = new THREE.Texture(img);
 texture.minFilter = THREE.LinearFilter;
 texture.magFilter = THREE.LinearFilter;
+texture.rotation = Math.PI / 2; // Rotate by 90 degrees (π/2 radians)
+texture.center.set(0.5, 0.5);
 
 // Update texture on each frame
 img.onload = function() {
@@ -20,7 +23,7 @@ img.onload = function() {
 };
 
 // Create background plane with camera feed
-const planeGeometry = new THREE.PlaneGeometry(16, 9);
+const planeGeometry = new THREE.PlaneGeometry(9, 16);
 const planeMaterial = new THREE.MeshBasicMaterial({ map: texture });
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.position.z = -5;
