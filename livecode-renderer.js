@@ -7,9 +7,9 @@ async function playVideo() {
   const input = urlInput.value.trim();
   const json = JSON.parse(input);
   console.log(json);
-  youtubeUrl = json.url;
-  startTime = json.start_time;
-  endTime = json.end_time;
+  const youtubeUrl = json.url;
+  const startTime = json.start_time;
+  const endTime = json.end_time;
   
   statusDiv.textContent = 'Loading...';
   statusDiv.className = 'loading';
@@ -17,20 +17,24 @@ async function playVideo() {
   console.log('electronAPI available?', window.electronAPI);
   const result = await window.electronAPI.getVideoUrl(youtubeUrl);
   
-  videoPlayer.src = result.url;
-  videoPlayer.classList.add('visible');
-  videoPlayer.currentTime = startTime;
-  videoPlayer.play();
-  
-  statusDiv.style.display = 'none';
-
-  // function to allow looping
-  videoPlayer.ontimeupdate = () => {
-    if (videoPlayer.currentTime >= endTime){
-      videoPlayer.currentTime = startTime;
-    }
+  if (result.success) {
+    // Send video data to Three.js window
+    await window.electronAPI.sendVideoToThreejs({
+      url: result.url,
+      startTime: startTime,
+      endTime: endTime
+    });
+    
+    statusDiv.textContent = 'Video sent to Three.js window!';
+    statusDiv.className = '';
+    statusDiv.style.background = '#2a6a4a';
+    statusDiv.style.color = '#6df2a0';
+  } else {
+    statusDiv.textContent = 'Error: ' + result.error;
+    statusDiv.className = '';
+    statusDiv.style.background = '#6a2a2a';
+    statusDiv.style.color = '#f26d6d';
   }
-
 }
 
 playBtn.addEventListener('click', playVideo);

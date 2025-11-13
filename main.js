@@ -40,8 +40,10 @@ function createThreejsWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      webSecurity: false // Allow loading video URLs from different origins
     }
   });
 
@@ -84,4 +86,16 @@ ipcMain.handle('get-video-url', async (event, youtubeUrl) => {
     req.write(postData);
     req.end();
   });
+});
+
+// Handle sending video data to Three.js window
+ipcMain.handle('send-video-to-threejs', async (event, videoData) => {
+  console.log('Received request to send video to Three.js window:', videoData);
+  if (threejsWindow && !threejsWindow.isDestroyed()) {
+    console.log('Sending play-video event to Three.js window');
+    threejsWindow.webContents.send('play-video', videoData);
+    return { success: true };
+  }
+  console.log('Three.js window not available');
+  return { success: false, error: 'Three.js window not available' };
 });
