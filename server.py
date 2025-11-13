@@ -8,7 +8,7 @@ import cv2
 app = Flask(__name__)
 CORS(app)
 
-camera = cv2.VideoCapture(1)
+camera = cv2.VideoCapture(0)
 
 
 def generate_frames():
@@ -17,7 +17,7 @@ def generate_frames():
         if not success:
             break
         frame = cv2.resize(frame, (640, 480))
-        frame = cv2.flip(frame, 0)
+        frame = cv2.flip(frame, 1)
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
