@@ -16,23 +16,22 @@ document.getElementById('css3d-container').appendChild(cssRenderer.domElement);
 const img = document.createElement('img');
 img.src = 'http://127.0.0.1:5000/video_feed';
 
+
 // Create texture from image
 const texture = new THREE.Texture(img);
 texture.minFilter = THREE.LinearFilter;
 texture.magFilter = THREE.LinearFilter;
+texture.rotation = Math.PI / 2; // Rotate by 90 degrees (π/2 radians)
+texture.center.set(0.5, 0.5);
 
 // Update texture on each frame
 img.onload = function() {
   texture.needsUpdate = true;
 };
 
-// Create background plane with camera feed (far back)
+// Create background plane with camera feed
 const planeGeometry = new THREE.PlaneGeometry(16, 9);
-const planeMaterial = new THREE.MeshBasicMaterial({ 
-  map: texture,
-  transparent: true,
-  opacity: 0.5 // Make it semi-transparent so we can see through it
-});
+const planeMaterial = new THREE.MeshBasicMaterial({ map: texture });
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.position.z = 0; // Moved further back
 scene.add(plane);
