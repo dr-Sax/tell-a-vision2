@@ -16,24 +16,25 @@ document.getElementById('css3d-container').appendChild(cssRenderer.domElement);
 const img = document.createElement('img');
 img.src = 'http://127.0.0.1:5000/video_feed';
 
-
 // Create texture from image
 const texture = new THREE.Texture(img);
 texture.minFilter = THREE.LinearFilter;
 texture.magFilter = THREE.LinearFilter;
-texture.rotation = Math.PI / 2; // Rotate by 90 degrees (π/2 radians)
-texture.center.set(0.5, 0.5);
 
 // Update texture on each frame
 img.onload = function() {
   texture.needsUpdate = true;
 };
 
-// Create background plane with camera feed
+// Create background plane with camera feed (far back)
 const planeGeometry = new THREE.PlaneGeometry(16, 9);
-const planeMaterial = new THREE.MeshBasicMaterial({ map: texture });
+const planeMaterial = new THREE.MeshBasicMaterial({ 
+  map: texture,
+  transparent: true,
+  opacity: 0.5 // Make it semi-transparent so we can see through it
+});
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.position.z = 0; // Moved further back
+plane.position.z = -10; // Moved further back
 scene.add(plane);
 
 // Add a simple cube in the foreground for demonstration
@@ -83,7 +84,7 @@ function displayVideo(videoUrl, startTime = 0, endTime = null) {
   cssObject = new THREE.CSS3DObject(videoElement);
   
   // Position the video in 3D space (closer to camera, in front of webcam)
-  cssObject.position.set(0, 0, 3); // Slightly in front of camera
+  cssObject.position.set(0, 0, 1); // Slightly in front of camera
   cssObject.scale.set(0.001, 0.001, 0.001); // Increased scale from 0.005
   
   console.log('CSS3D object created and added to scene');
@@ -105,14 +106,6 @@ function animate() {
   // Render both scenes
   renderer.render(scene, camera);
   cssRenderer.render(cssScene, camera);
-
-  try{
-    cssObject.rotation.z += 0.01;
-  }
-  catch(err){
-    //console.log('No cssObject to rotate yet');
-  }
-  
 }
 
 animate();
