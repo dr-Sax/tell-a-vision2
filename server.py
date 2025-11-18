@@ -4,33 +4,128 @@ from flask_cors import CORS
 import yt_dlp
 import sys
 import cv2
+import mediapipe as mp
+import json
 
 app = Flask(__name__)
 CORS(app)
 
+# Initialize MediaPipe Hands
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=2,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
+
 camera = cv2.VideoCapture(0)
+
+# Global variable to store latest hand tracking data
+latest_hand_data = {
+    'right_hand_detected': False,
+    'right_hand_position': {'x': 0, 'y': 0, 'z': 0}
+}
 
 
 def generate_frames():
+    """Generate video frames with hand tracking"""
+    global latest_hand_data
+    
     while True:
         success, frame = camera.read()
         if not success:
             break
+        
+        # Resize and flip frame
         frame = cv2.resize(frame, (640, 480))
         frame = cv2.flip(frame, 1)
+        
+        # Convert BGR to RGB for MediaPipe
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Process frame with MediaPipe
+        results = hands.process(rgb_frame)
+        
+        # Update hand tracking data
+        latest_hand_data['right_hand_detected'] = False
+        
+        if results.multi_hand_landmarks and results.multi_handedness:
+            for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
+                # Get hand label (Left or Right)
+                handedness = results.multi_handedness[idx].classification[0].label
+                
+                if handedness == 'Right':
+                    latest_hand_data['right_hand_detected'] = True
+                    
+                    # Get wrist position (landmark 0)
+                    wrist = hand_landmarks.landmark[0]
+                    
+                    # Store normalized coordinates
+                    latest_hand_data['right_hand_position'] = {
+                        'x': wrist.x,
+                        'y': wrist.y,
+                        'z': wrist.z
+                    }
+                    
+                    # Optional: Draw hand landmarks on frame for debugging
+                    mp_drawing = mp.solutions.drawing_utils
+                    mp_drawing.draw_landmarks(
+                        frame,
+                        hand_landmarks,
+                        mp_hands.HAND_CONNECTIONS
+                    )
+        
+        # Encode frame as JPEG
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+
+def generate_hand_data():
+    """Generate SSE stream of hand tracking data"""
+    global latest_hand_data
+    
+    while True:
+        # Send hand tracking data as Server-Sent Events
+        data = json.dumps(latest_hand_data)
+        yield f"data: {data}\n\n"
+        
+        # Small delay to avoid overwhelming the client
+        import time
+        time.sleep(0.033)  # ~30 FPS
+
+
 @app.route('/video_feed')
 def video_feed():
+    """Stream video feed with hand tracking visualization"""
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/hand_tracking')
+def hand_tracking():
+    """Stream hand tracking data via Server-Sent Events"""
+    return Response(generate_hand_data(),
+                    mimetype='text/event-stream',
+                    headers={
+                        'Cache-Control': 'no-cache',
+                        'X-Accel-Buffering': 'no'
+                    })
+
+
+@app.route('/hand_data')
+def hand_data():
+    """Get current hand tracking data as JSON (polling endpoint)"""
+    global latest_hand_data
+    return jsonify(latest_hand_data)
+
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
+
 
 @app.route('/get-video-url', methods=['POST'])
 def get_video_url():
@@ -91,6 +186,7 @@ def get_video_url():
             'error': str(e),
             'success': False
         }), 500
+
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000

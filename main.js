@@ -99,3 +99,14 @@ ipcMain.handle('send-video-to-threejs', async (event, videoData) => {
   console.log('Three.js window not available');
   return { success: false, error: 'Three.js window not available' };
 });
+// Handle sending clip-path to Three.js window
+ipcMain.handle('send-clippath-to-threejs', async (event, clipPath) => {
+  console.log('Received request to send clip-path to Three.js window:', clipPath);
+  if (threejsWindow && !threejsWindow.isDestroyed()) {
+    console.log('Sending apply-clippath event to Three.js window');
+    threejsWindow.webContents.send('apply-clippath', clipPath);
+    return { success: true };
+  }
+  console.log('Three.js window not available');
+  return { success: false, error: 'Three.js window not available' };
+});
