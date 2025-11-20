@@ -88,25 +88,74 @@ ipcMain.handle('get-video-url', async (event, youtubeUrl) => {
   });
 });
 
-// Handle sending video data to Three.js window
-ipcMain.handle('send-video-to-threejs', async (event, videoData) => {
-  console.log('Received request to send video to Three.js window:', videoData);
+// Handle sending right hand video to Three.js window
+ipcMain.handle('send-right-hand-video', async (event, videoData) => {
+  console.log('Received request to send right hand video to Three.js window:', videoData);
   if (threejsWindow && !threejsWindow.isDestroyed()) {
-    console.log('Sending play-video event to Three.js window');
-    threejsWindow.webContents.send('play-video', videoData);
+    console.log('Sending play-right-hand-video event to Three.js window');
+    threejsWindow.webContents.send('play-right-hand-video', videoData);
     return { success: true };
   }
   console.log('Three.js window not available');
   return { success: false, error: 'Three.js window not available' };
 });
-// Handle sending clip-path to Three.js window
-ipcMain.handle('send-clippath-to-threejs', async (event, clipPath) => {
-  console.log('Received request to send clip-path to Three.js window:', clipPath);
+
+// Handle sending left hand video to Three.js window
+ipcMain.handle('send-left-hand-video', async (event, videoData) => {
+  console.log('Received request to send left hand video to Three.js window:', videoData);
   if (threejsWindow && !threejsWindow.isDestroyed()) {
-    console.log('Sending apply-clippath event to Three.js window');
-    threejsWindow.webContents.send('apply-clippath', clipPath);
+    console.log('Sending play-left-hand-video event to Three.js window');
+    threejsWindow.webContents.send('play-left-hand-video', videoData);
     return { success: true };
   }
   console.log('Three.js window not available');
+  return { success: false, error: 'Three.js window not available' };
+});
+
+// Handle sending right hand clip-path to Three.js window
+ipcMain.handle('send-right-hand-clippath', async (event, clipPath) => {
+  console.log('Received request to send right hand clip-path to Three.js window:', clipPath);
+  if (threejsWindow && !threejsWindow.isDestroyed()) {
+    console.log('Sending apply-right-hand-clippath event to Three.js window');
+    threejsWindow.webContents.send('apply-right-hand-clippath', clipPath);
+    return { success: true };
+  }
+  console.log('Three.js window not available');
+  return { success: false, error: 'Three.js window not available' };
+});
+
+// Handle sending left hand clip-path to Three.js window
+ipcMain.handle('send-left-hand-clippath', async (event, clipPath) => {
+  console.log('Received request to send left hand clip-path to Three.js window:', clipPath);
+  if (threejsWindow && !threejsWindow.isDestroyed()) {
+    console.log('Sending apply-left-hand-clippath event to Three.js window');
+    threejsWindow.webContents.send('apply-left-hand-clippath', clipPath);
+    return { success: true };
+  }
+  console.log('Three.js window not available');
+  return { success: false, error: 'Three.js window not available' };
+});
+
+// Handle sending right hand parameters to Three.js window
+ipcMain.handle('send-right-hand-parameters', async (event, params) => {
+  console.log('Main process: Received right hand parameters:', params);
+  if (threejsWindow && !threejsWindow.isDestroyed()) {
+    console.log('Main process: Sending to Three.js window');
+    threejsWindow.webContents.send('apply-right-hand-parameters', params);
+    return { success: true };
+  }
+  console.log('Main process: Three.js window not available');
+  return { success: false, error: 'Three.js window not available' };
+});
+
+// Handle sending left hand parameters to Three.js window
+ipcMain.handle('send-left-hand-parameters', async (event, params) => {
+  console.log('Main process: Received left hand parameters:', params);
+  if (threejsWindow && !threejsWindow.isDestroyed()) {
+    console.log('Main process: Sending to Three.js window');
+    threejsWindow.webContents.send('apply-left-hand-parameters', params);
+    return { success: true };
+  }
+  console.log('Main process: Three.js window not available');
   return { success: false, error: 'Three.js window not available' };
 });

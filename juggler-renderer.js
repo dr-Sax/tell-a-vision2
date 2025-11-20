@@ -1,186 +1,216 @@
-// WebGL Scene Setup
+// WebGL Scene
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ alpha: true });
-
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('webgl-container').appendChild(renderer.domElement);
 
-// CSS3D Scene Setup for video
+// CSS3D Scene
 const cssScene = new THREE.Scene();
 const cssRenderer = new THREE.CSS3DRenderer();
 cssRenderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('css3d-container').appendChild(cssRenderer.domElement);
 
-// Create img element for MJPEG camera feed
+// Camera feed dimensions from OpenCV (matches server.py: cv2.resize(frame, (640, 480)))
+const CAMERA_WIDTH = 640;
+const CAMERA_HEIGHT = 480;
+const CAMERA_ASPECT = CAMERA_WIDTH / CAMERA_HEIGHT; // 1.333...
+
+// Calculate plane dimensions to match camera aspect ratio
+// We'll use a reference width and calculate height from aspect ratio
+const PLANE_WIDTH = 16;
+const PLANE_HEIGHT = PLANE_WIDTH / CAMERA_ASPECT; // 12
+
+// Camera feed texture
 const img = document.createElement('img');
 img.src = 'http://127.0.0.1:5000/video_feed';
-
-// Create texture from image
 const texture = new THREE.Texture(img);
 texture.minFilter = THREE.LinearFilter;
 texture.magFilter = THREE.LinearFilter;
+img.onload = () => texture.needsUpdate = true;
 
-// Update texture on each frame
-img.onload = function() {
-  texture.needsUpdate = true;
-};
-
-// Create background plane with camera feed (far back)
-const planeGeometry = new THREE.PlaneGeometry(16, 9);
-const planeMaterial = new THREE.MeshBasicMaterial({ 
-  map: texture,
-  transparent: true,
-  opacity: 0.5
-});
-const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.position.z = -10;
+// Background plane with correct aspect ratio matching camera feed
+const plane = new THREE.Mesh(
+  new THREE.PlaneGeometry(PLANE_WIDTH, PLANE_HEIGHT),
+  new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.5 })
+);
+plane.position.z = 0;
 scene.add(plane);
 
-// Add a simple cube in the foreground for demonstration
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-const cube = new THREE.Mesh(geometry, material);
-cube.position.z = 2;
-scene.add(cube);
+// Video elements for both hands
+let rightVideoElement = null;
+let rightCssObject = null;
+let leftVideoElement = null;
+let leftCssObject = null;
 
-// Video element for CSS3D
-let videoElement = null;
-let cssObject = null;
-
-// Hand tracking state
+// Hand tracking
 let rightHandDetected = false;
 let rightHandPosition = { x: 0, y: 0, z: 0 };
+let leftHandDetected = false;
+let leftHandPosition = { x: 0, y: 0, z: 0 };
 
-// Connect to hand tracking SSE stream
+// Coordinate mapping function: MediaPipe normalized (0-1) -> Three.js world space
+function mapCameraToWorld(normalizedX, normalizedY) {
+  // MediaPipe coordinates: (0,0) is top-left, (1,1) is bottom-right
+  // Three.js coordinates: (0,0) is center, with x+ right, y+ up
+  
+  // Map x: 0->1 becomes -PLANE_WIDTH/2 -> +PLANE_WIDTH/2
+  const worldX = (normalizedX - 0.5) * PLANE_WIDTH;
+  
+  // Map y: 0->1 becomes +PLANE_HEIGHT/2 -> -PLANE_HEIGHT/2 (flip vertical)
+  const worldY = -(normalizedY - 0.5) * PLANE_HEIGHT;
+  
+  return { x: worldX, y: worldY };
+}
+
+// Hand tracking SSE
 const handTrackingSource = new EventSource('http://127.0.0.1:5000/hand_tracking');
-
-handTrackingSource.onmessage = function(event) {
+handTrackingSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
   
+  // Right hand
   rightHandDetected = data.right_hand_detected;
-  
   if (rightHandDetected) {
-    // Convert normalized coordinates from MediaPipe to Three.js space
-    // MediaPipe gives x (0=left, 1=right), y (0=top, 1=bottom), z (depth)
     const handPos = data.right_hand_position;
-    
-    // Map from normalized [0,1] to centered Three.js space
-    const x = (handPos.x - 0.5) * 10; // Map to -5 to 5 range
-    const y = -(handPos.y - 0.5) * 10; // Invert Y and map to -5 to 5 range
-    const z = -handPos.z * 5 + 2; // Use depth for z positioning
-    
-    rightHandPosition = { x, y, z };
-    
-    console.log('Hand detected at:', rightHandPosition);
+    const worldPos = mapCameraToWorld(handPos.x, handPos.y);
+    rightHandPosition = {
+      x: worldPos.x,
+      y: worldPos.y,
+      z: 0.1
+    };
   }
   
-  // Update video visibility and position
-  updateVideoPosition();
+  // Left hand
+  leftHandDetected = data.left_hand_detected;
+  if (leftHandDetected) {
+    const handPos = data.left_hand_position;
+    const worldPos = mapCameraToWorld(handPos.x, handPos.y);
+    leftHandPosition = {
+      x: worldPos.x,
+      y: worldPos.y,
+      z: 0.1
+    };
+  }
+  
+  updateVideoPositions();
 };
 
-handTrackingSource.onerror = function(error) {
-  console.error('Hand tracking SSE error:', error);
-  // Try to reconnect after a delay
-  setTimeout(() => {
-    console.log('Attempting to reconnect to hand tracking...');
-  }, 3000);
-};
-
-// Function to update video position based on hand tracking
-function updateVideoPosition() {
-  if (cssObject) {
+function updateVideoPositions() {
+  // Update right hand video
+  if (rightCssObject) {
+    // Always keep video visible once it's been created
+    rightCssObject.visible = true;
+    
+    // Only update position when hand is detected
     if (rightHandDetected) {
-      // Show video and position it at the hand
-      cssObject.visible = true;
-      cssObject.position.set(
-        rightHandPosition.x,
-        rightHandPosition.y,
-        rightHandPosition.z
-      );
-      console.log('Video positioned at:', cssObject.position);
-    } else {
-      // Hide video when hand is not detected
-      cssObject.visible = false;
-      console.log('Hand not detected, hiding video');
+      rightCssObject.position.set(rightHandPosition.x, rightHandPosition.y, rightHandPosition.z);
     }
+    // If hand is not detected, video stays at last known position
+  }
+  
+  // Update left hand video
+  if (leftCssObject) {
+    // Always keep video visible once it's been created
+    leftCssObject.visible = true;
+    
+    // Only update position when hand is detected
+    if (leftHandDetected) {
+      leftCssObject.position.set(leftHandPosition.x, leftHandPosition.y, leftHandPosition.z);
+    }
+    // If hand is not detected, video stays at last known position
   }
 }
 
-// Function to create and display video
-function displayVideo(videoUrl, startTime = 0, endTime = null) {
-  console.log('displayVideo called with:', { videoUrl, startTime, endTime });
+function displayRightHandVideo(videoUrl, startTime = 0, endTime = null) {
+  if (rightCssObject) cssScene.remove(rightCssObject);
   
-  // Remove existing video if present
-  if (cssObject) {
-    console.log('Removing existing video');
-    cssScene.remove(cssObject);
-  }
+  rightVideoElement = document.createElement('video');
+  rightVideoElement.className = 'video-element';
+  rightVideoElement.src = videoUrl;
+  rightVideoElement.controls = false;
+  rightVideoElement.autoplay = true;
+  rightVideoElement.loop = !endTime;
+  rightVideoElement.muted = false;
+  rightVideoElement.currentTime = startTime;
   
-  // Create video element
-  videoElement = document.createElement('video');
-  videoElement.className = 'video-element';
-  videoElement.src = videoUrl;
-  videoElement.controls = false; // Disable controls to avoid clicking issues
-  videoElement.autoplay = true;
-  videoElement.loop = endTime ? false : true;
-  videoElement.muted = false; // Make sure audio plays
-  
-  console.log('Video element created:', videoElement);
-  
-  // Set start time
-  videoElement.currentTime = startTime;
-  
-  // Handle looping between start and end times
   if (endTime) {
-    videoElement.ontimeupdate = () => {
-      if (videoElement.currentTime >= endTime) {
-        videoElement.currentTime = startTime;
+    rightVideoElement.ontimeupdate = () => {
+      if (rightVideoElement.currentTime >= endTime) {
+        rightVideoElement.currentTime = startTime;
       }
     };
   }
   
-  // Create CSS3D object
-  cssObject = new THREE.CSS3DObject(videoElement);
+  rightCssObject = new THREE.CSS3DObject(rightVideoElement);
+  rightCssObject.scale.set(0.003, 0.003, 0.003);
+  rightCssObject.position.set(0, 0, 0.1);
+  rightCssObject.visible = true;
+  cssScene.add(rightCssObject);
   
-  // IMPORTANT: Much larger scale so video is actually visible
-  // CSS3D units are in pixels, so we need a scale that makes sense
-  cssObject.scale.set(0.003, 0.003, 0.003); // Increased from 0.001
+  updateVideoPositions();
+}
+
+function displayLeftHandVideo(videoUrl, startTime = 0, endTime = null) {
+  if (leftCssObject) cssScene.remove(leftCssObject);
   
-  // Initial position at center, will be updated by hand tracking
-  cssObject.position.set(0, 0, 3); // Start in front of camera
+  leftVideoElement = document.createElement('video');
+  leftVideoElement.className = 'video-element';
+  leftVideoElement.src = videoUrl;
+  leftVideoElement.controls = false;
+  leftVideoElement.autoplay = true;
+  leftVideoElement.loop = !endTime;
+  leftVideoElement.muted = false;
+  leftVideoElement.currentTime = startTime;
   
-  // Start visible for testing, will be controlled by hand tracking
-  cssObject.visible = true;
+  if (endTime) {
+    leftVideoElement.ontimeupdate = () => {
+      if (leftVideoElement.currentTime >= endTime) {
+        leftVideoElement.currentTime = startTime;
+      }
+    };
+  }
   
-  console.log('CSS3D object created and added to scene');
-  console.log('Position:', cssObject.position);
-  console.log('Scale:', cssObject.scale);
-  console.log('Visible:', cssObject.visible);
+  leftCssObject = new THREE.CSS3DObject(leftVideoElement);
+  leftCssObject.scale.set(0.003, 0.003, 0.003);
+  leftCssObject.position.set(0, 0, 0.1);
+  leftCssObject.visible = true;
+  cssScene.add(leftCssObject);
   
-  cssScene.add(cssObject);
-  
-  // Force immediate update
-  updateVideoPosition();
+  updateVideoPositions();
+}
+
+function applyRightHandClipPath(clipPath) {
+  if (rightVideoElement) {
+    rightVideoElement.style.clipPath = clipPath;
+    rightVideoElement.style.webkitClipPath = clipPath;
+    if (rightCssObject) {
+      rightCssObject.element.style.clipPath = clipPath;
+      rightCssObject.element.style.webkitClipPath = clipPath;
+    }
+  }
+}
+
+function applyLeftHandClipPath(clipPath) {
+  if (leftVideoElement) {
+    leftVideoElement.style.clipPath = clipPath;
+    leftVideoElement.style.webkitClipPath = clipPath;
+    if (leftCssObject) {
+      leftCssObject.element.style.clipPath = clipPath;
+      leftCssObject.element.style.webkitClipPath = clipPath;
+    }
+  }
 }
 
 camera.position.z = 5;
 
-// Animation loop
 function animate() {
   requestAnimationFrame(animate);
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
   texture.needsUpdate = true;
-  
-  // CRITICAL: Render CSS3D AFTER WebGL so it appears on top
   renderer.render(scene, camera);
   cssRenderer.render(cssScene, camera);
 }
-
 animate();
 
-// Handle window resize
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -188,17 +218,69 @@ window.addEventListener('resize', () => {
   cssRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Listen for video data from main process
 window.addEventListener('message', (event) => {
-  console.log('Message received:', event.data);
-  if (event.data && event.data.type === 'play-video') {
+  if (event.data && event.data.type === 'play-right-hand-video') {
     const { url, startTime, endTime } = event.data;
-    console.log('Playing video with:', { url, startTime, endTime });
-    displayVideo(url, startTime, endTime);
+    displayRightHandVideo(url, startTime, endTime);
   }
-});
-
-// Debug: Log when video element plays
-window.addEventListener('load', () => {
-  console.log('Page loaded, waiting for video...');
+  
+  if (event.data && event.data.type === 'play-left-hand-video') {
+    const { url, startTime, endTime } = event.data;
+    displayLeftHandVideo(url, startTime, endTime);
+  }
+  
+  if (event.data && event.data.type === 'apply-right-hand-clippath') {
+    applyRightHandClipPath(event.data.clipPath);
+  }
+  
+  if (event.data && event.data.type === 'apply-left-hand-clippath') {
+    applyLeftHandClipPath(event.data.clipPath);
+  }
+  
+  // Handle parameter updates from livecode window
+  if (event.data && event.data.type === 'apply-parameters') {
+    console.log('Juggler received apply-parameters:', event.data);
+    const { hand, params } = event.data;
+    const element = hand === 'right' ? rightVideoElement : leftVideoElement;
+    const cssObject = hand === 'right' ? rightCssObject : leftCssObject;
+    
+    if (!element || !cssObject) {
+      console.warn(`Cannot apply parameters: element=${!!element}, cssObject=${!!cssObject}`);
+      return;
+    }
+    
+    console.log(`Applying parameters to ${hand} hand:`, params);
+    
+    // Apply CSS filters
+    const filters = [
+      `hue-rotate(${params.hue}deg)`,
+      `saturate(${params.saturation}%)`,
+      `brightness(${params.brightness}%)`,
+      `contrast(${params.contrast}%)`,
+      `blur(${params.blur}px)`,
+      `grayscale(${params.grayscale}%)`,
+      `sepia(${params.sepia}%)`
+    ];
+    element.style.filter = filters.join(' ');
+    console.log(`Applied filters: ${element.style.filter}`);
+    
+    // Apply volume and playback rate
+    if (element.tagName === 'VIDEO') {
+      element.volume = params.volume / 100;
+      element.playbackRate = params.speed;
+      console.log(`Applied volume: ${element.volume}, playbackRate: ${element.playbackRate}`);
+    }
+    
+    // Apply opacity
+    element.style.opacity = params.opacity;
+    
+    // Apply scale
+    const baseScale = 0.003;
+    cssObject.scale.set(
+      baseScale * params.scale,
+      baseScale * params.scale,
+      baseScale * params.scale
+    );
+    console.log(`Applied opacity: ${element.style.opacity}, scale: ${params.scale}`);
+  }
 });

@@ -2,181 +2,209 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>YouTube Video Player with Polygon Editor</title>
+  <title>Live Code Editor</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: sans-serif;
-      background: #1a1a1a;
-      color: #fff;
+      background: #000;
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      overflow: auto;
+    }
+
+    #codeEditor {
+      width: 100%;
+      min-height: 300px;
       padding: 20px;
-    }
-
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .input-container {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    #youtubeUrl {
-      flex: 1;
-      padding: 12px;
-      background: #2a2a2a;
-      color: #fff;
-      border: 2px solid #333;
-      border-radius: 6px;
-    }
-
-    button {
-      padding: 12px 24px;
-      background: #0066cc;
-      color: white;
+      background: #000;
+      color: #0f0;
       border: none;
-      border-radius: 6px;
-      cursor: pointer;
+      outline: none;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      resize: vertical;
+      line-height: 1.8;
+      border-bottom: 2px solid #0f0;
     }
 
-    button:hover {
-      background: #0052a3;
+    #codeEditor::selection {
+      background: #0f03;
     }
 
-    #status {
-      margin-bottom: 20px;
-      padding: 12px;
-      border-radius: 6px;
+    .video-object {
+      border: 2px solid #0f0;
+      background: #001100;
+      display: inline-block;
+      vertical-align: top;
+      max-width: 340px;
     }
 
-    #status.loading {
-      background: #2a4a6a;
-      color: #6db3f2;
+    .video-object.selected {
+      border-color: #ff0;
     }
 
-    .editor-container {
+    .video-label {
+      padding: 6px 12px;
+      background: #0f0;
+      color: #000;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .video-info {
+      padding: 4px 12px;
+      font-size: 10px;
+      color: #0a0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 320px;
+    }
+
+    .video-params {
+      padding: 4px 12px;
+      font-size: 10px;
+      color: #0af;
+      border-top: 1px solid #0a0;
+      min-height: 60px;
+    }
+
+    .param-line {
       display: flex;
-      gap: 20px;
-      margin-top: 20px;
+      justify-content: space-between;
+      padding: 2px 0;
     }
 
-    .canvas-wrapper {
-      flex: 0 0 640px;
+    .param-name {
+      color: #0af;
     }
 
-    #polygonCanvas {
-      border: 2px solid #00ff00;
+    .param-value {
+      color: #0ff;
+      font-weight: bold;
+    }
+
+    canvas {
+      display: block;
       background: #000;
       cursor: crosshair;
     }
 
-    .controls {
-      flex: 1;
-    }
-
-    .control-section {
-      background: #2a2a2a;
-      padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 15px;
-    }
-
-    .control-section h3 {
-      margin-top: 0;
-      color: #00ff00;
-    }
-
-    .control-section p {
-      font-size: 14px;
-      line-height: 1.6;
-      color: #aaa;
-    }
-
-    .clip-path-display {
-      background: #1a1a1a;
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 20px;
+      background: #050505;
+      border-top: 1px solid #0f0;
       font-size: 12px;
-      color: #00ff00;
-      word-wrap: break-word;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .button-group {
+      z-index: 1000;
       display: flex;
-      gap: 10px;
-      margin-top: 10px;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .button-group button {
-      flex: 1;
-      padding: 8px 16px;
-      font-size: 14px;
+    .status-bar .error {
+      color: #f00;
     }
 
-    .delete-btn {
-      background: #cc0000;
+    .status-bar .success {
+      color: #0f0;
     }
 
-    .delete-btn:hover {
-      background: #a30000;
+    .mode-display {
+      color: #ff0;
+      font-weight: bold;
+      padding: 4px 12px;
+      border: 1px solid #ff0;
+      background: #220;
     }
 
-    .reset-btn {
-      background: #666;
+    .mode-params {
+      color: #0af;
+      font-size: 11px;
+      margin-left: 10px;
     }
 
-    .reset-btn:hover {
-      background: #555;
+    .hint {
+      padding: 4px 12px;
+      font-size: 10px;
+      color: #0a0;
+      font-style: italic;
+    }
+
+    #videoContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 5px;
+      align-items: flex-start;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>YouTube Video Player with Polygon Clip-Path Editor</h1>
-    
-    <div class="input-container">
-      <input type="text" id="youtubeUrl" placeholder="Enter YouTube URL JSON: {url: '...', start_time: 0, end_time: 10}">
-      <button id="playBtn">Play Video</button>
+  <textarea id="codeEditor" spellcheck="false">// Live Code Editor
+// Press Ctrl+Enter to execute
+
+right_hand({
+  url: "https://www.youtube.com/watch?v=96xGUa1a_zs",
+  start: 80,
+  end: 120
+});
+
+left_hand({
+  url: "https://www.youtube.com/watch?v=naGntYNTSQM",
+  start: 66,
+  end: 100
+});
+
+// Foot Mouse Control Modes
+// Left/Right click to cycle modes
+// Trackball X/Y to modify parameters
+
+foot_mode(0, "playback", {
+  right: { x: "volume", y: "speed" },
+  left: { x: "volume", y: "speed" }
+});
+
+foot_mode(1, "color_grade", {
+  target: "both",
+  x: "hue",
+  y: "saturation"
+});
+
+foot_mode(2, "visual_fx", {
+  target: "both",
+  x: "brightness",
+  y: "contrast"
+});
+
+foot_mode(3, "right_scrub", {
+  target: "right",
+  x: "timestamp",
+  y: "blur"
+});
+
+foot_mode(4, "spatial", {
+  right: { x: "scale", y: "opacity" },
+  left: { x: "scale", y: "opacity" }
+});</textarea>
+
+  <div id="videoContainer"></div>
+
+  <div class="status-bar">
+    <div>
+      <span id="statusText">Ready - Press Ctrl+Enter to execute</span>
     </div>
-
-    <div id="status"></div>
-
-    <div class="editor-container">
-      <div class="canvas-wrapper">
-        <canvas id="polygonCanvas"></canvas>
-      </div>
-
-      <div class="controls">
-        <div class="control-section">
-          <h3>Instructions</h3>
-          <p><strong>Click</strong> to add new vertices to the polygon</p>
-          <p><strong>Drag</strong> existing vertices to move them</p>
-          <p><strong>Right-click</strong> on a vertex to delete it</p>
-          <p><strong>Double-click</strong> on canvas to close polygon</p>
-        </div>
-
-        <div class="control-section">
-          <h3>Clip-Path CSS</h3>
-          <div class="clip-path-display" id="clipPathDisplay">
-            polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)
-          </div>
-          <div class="button-group">
-            <button id="resetBtn" class="reset-btn">Reset to Default</button>
-            <button id="applyBtn">Apply to Video</button>
-          </div>
-        </div>
-
-        <div class="control-section">
-          <h3>Current Vertices</h3>
-          <div id="vertexList" style="font-size: 12px; color: #aaa;">
-            No vertices yet
-          </div>
-        </div>
-      </div>
+    <div style="display: flex; align-items: center;">
+      <span class="mode-display" id="modeDisplay">MODE 0: playback</span>
+      <span class="mode-params" id="modeParams">Right: X=volume Y=speed | Left: X=volume Y=speed</span>
     </div>
   </div>
 

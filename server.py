@@ -24,7 +24,9 @@ camera = cv2.VideoCapture(0)
 # Global variable to store latest hand tracking data
 latest_hand_data = {
     'right_hand_detected': False,
-    'right_hand_position': {'x': 0, 'y': 0, 'z': 0}
+    'right_hand_position': {'x': 0, 'y': 0, 'z': 0},
+    'left_hand_detected': False,
+    'left_hand_position': {'x': 0, 'y': 0, 'z': 0}
 }
 
 
@@ -47,34 +49,40 @@ def generate_frames():
         # Process frame with MediaPipe
         results = hands.process(rgb_frame)
         
-        # Update hand tracking data
+        # Update hand tracking data - reset both hands
         latest_hand_data['right_hand_detected'] = False
+        latest_hand_data['left_hand_detected'] = False
         
         if results.multi_hand_landmarks and results.multi_handedness:
             for idx, hand_landmarks in enumerate(results.multi_hand_landmarks):
                 # Get hand label (Left or Right)
                 handedness = results.multi_handedness[idx].classification[0].label
                 
+                # Get wrist position (landmark 0)
+                wrist = hand_landmarks.landmark[0]
+                
                 if handedness == 'Right':
                     latest_hand_data['right_hand_detected'] = True
-                    
-                    # Get wrist position (landmark 0)
-                    wrist = hand_landmarks.landmark[0]
-                    
-                    # Store normalized coordinates
                     latest_hand_data['right_hand_position'] = {
                         'x': wrist.x,
                         'y': wrist.y,
                         'z': wrist.z
                     }
-                    
-                    # Optional: Draw hand landmarks on frame for debugging
-                    mp_drawing = mp.solutions.drawing_utils
-                    mp_drawing.draw_landmarks(
-                        frame,
-                        hand_landmarks,
-                        mp_hands.HAND_CONNECTIONS
-                    )
+                elif handedness == 'Left':
+                    latest_hand_data['left_hand_detected'] = True
+                    latest_hand_data['left_hand_position'] = {
+                        'x': wrist.x,
+                        'y': wrist.y,
+                        'z': wrist.z
+                    }
+                
+                # Optional: Draw hand landmarks on frame for debugging
+                mp_drawing = mp.solutions.drawing_utils
+                mp_drawing.draw_landmarks(
+                    frame,
+                    hand_landmarks,
+                    mp_hands.HAND_CONNECTIONS
+                )
         
         # Encode frame as JPEG
         ret, buffer = cv2.imencode('.jpg', frame)
